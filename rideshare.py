@@ -1,4 +1,5 @@
 import jax
+from jax.experimental import sparse
 from functools import partial
 from picard.environments.rideshare_dispatch import (
     ManhattanRideshareDispatch,
@@ -20,6 +21,8 @@ from sacred import Experiment
 from tqdm import tqdm, trange
 import pandas as pd
 import numpy as np
+import funcy as f
+from pykronecker import KroneckerProduct
 
 ex = Experiment("rideshares")
 
@@ -36,8 +39,6 @@ def config():
     batch_size = 100  # Number of environments to run in parallel
     switch_every = 1000  # Switchback duration
     p = 0.5  # Treatment probability
-    max_km = 2.0  # Max distance between spatial clusters to be considered "adjacent" for DQ
-
     output = "results.csv"
     config_output = "config.csv"
 
@@ -55,11 +56,28 @@ def naive(
     z: Bool[Array, "n"],
     p: Float[Array, "n"],
     mask: Bool[Array, "n"],
-    baseline: float = 10,
 ) -> Float[Array, "1"]:
     y1 = y * z / p
     y0 = y * (1 - z) / (1 - p)
     return ((y1 - y0) * mask).sum()
+
+
+def ht(
+    y: Float[Array, "n"],
+    z: Bool[Array, "n"],
+    p: Float[Array, "n"],
+    mask: Bool[Array, "n"],
+    A: Bool[Array, "n n"],
+) -> Float[Array, "1"]:
+    # Take the product of importance weights for
+    # in-nodes in the graph. If the node is
+    # not in the experiment (i.e., mask=0), ignore it
+    # (i.e., multiply by 1 in the product)
+    wts_tr = z / p * A * mask + (1 - A * mask)
+    y_tr = jnp.prod(wts_tr, axis=0) * y
+    wts_co = (1 - z) / (1 - p) * A * mask + (1 - A * mask)
+    y_co = jnp.prod(wts_co, axis=0) * y
+    return ((y_tr - y_co) * mask).sum()
 
 
 def dq(
@@ -68,14 +86,14 @@ def dq(
     p: Float[Array, "n"],
     mask: Bool[Array, "n"],
     A: Bool[Array, "n n"],
-    baseline: float = 10,
 ) -> Float[Array, "1"]:
     y1 = y * z / p
     y0 = y * (1 - z) / (1 - p)
     eta = z / p - (1 - z) / (1 - p)
     xi = z * (1 - p) / p + (1 - z) * p / (1 - p)
-    affected_y = (A - jnp.eye(*A.shape)) @ (xi * y)
-    return (mask * eta * (y + affected_y - affected_y.mean())).sum()
+    Ay = A @ (xi * y) - (xi * y)
+    baseline = A.sum(1) * y.mean()
+    return (mask * eta * (y + Ay - baseline)).sum()
 
 
 def dq_grad(
@@ -86,11 +104,10 @@ def dq_grad(
     A: Bool[Array, "n n"],
     baseline: float = 10,
 ) -> Float[Array, "1"]:
-    y1 = y * z / p
-    y0 = y * (1 - z) / (1 - p)
+    Ay = A @ y
+    baseline = A.sum(1) * y.mean()
     eta = z / p - (1 - z) / (1 - p)
-    affected_y = (A - jnp.eye(*A.shape)) @ y
-    return (mask * eta * (y + affected_y - affected_y.mean())).sum()
+    return (mask * eta * (Ay - baseline)).sum()
 
 
 def stepper(env, env_params, A, B, obs_and_state, key_and_treat):
@@ -172,15 +189,15 @@ def single_stepper(env, env_params, policy, obs_and_state, key):
     return (new_obs, new_state), (obs, action, reward, action_info)
 
 
-def load_spatial_clusters(max_km):
+def load_spatial_clusters():
     # scratch
     import pandas as pd
     import haversine
 
-    zones = pd.read_parquet("~/Downloads/taxi-zones.parquet")
+    zones = pd.read_parquet("taxi-zones.parquet")
     unq_zones, unq_zone_ids = np.unique(zones["zone"], return_inverse=True)
     zones["zone_id"] = unq_zone_ids
-    nodes = pd.read_parquet("../ridesharing-gpu/manhattan-nodes.parquet")
+    nodes = pd.read_parquet("manhattan-nodes.parquet")
     nodes["lng"] = nodes["lng"].astype(float)
     nodes["lat"] = nodes["lat"].astype(float)
     nodes_zones = nodes.merge(zones, on="osmid")
@@ -195,7 +212,15 @@ def load_spatial_clusters(max_km):
                 (centroids.iloc[i]["lat"], centroids.iloc[i]["lng"]),
                 (centroids.iloc[j]["lat"], centroids.iloc[j]["lng"]),
             )
-    return nodes_zones, dist < max_km
+    return nodes_zones, dist
+
+
+@struct.dataclass
+class EstimationResult:
+    estimator: str
+    estimate: float
+    lookahead_minutes: int=-1
+    max_km: float=-1
 
 
 @ex.automain
@@ -210,7 +235,6 @@ def main(
     batch_size,
     switch_every,
     p,
-    max_km,
     output,
     _config,
 ):
@@ -221,7 +245,7 @@ def main(
         w_price=w_price, w_eta=w_eta, w_intercept=w_intercept
     )
 
-    nodes_zones, spatial_adj = load_spatial_clusters(max_km)
+    nodes_zones, zone_dists = load_spatial_clusters()
 
     A = SimplePricingPolicy(n_cars=env.n_cars, price_per_distance=0.01)
     B = SimplePricingPolicy(n_cars=env.n_cars, price_per_distance=0.02)
@@ -257,40 +281,60 @@ def main(
 
     unq_times = jnp.unique(env_params.events.t // switch_every)
     n_times = unq_times.shape[0]
-    n_spaces = spatial_adj.shape[0]
+    n_spaces = zone_dists.shape[0]
     n_clusters = n_times * n_spaces
 
-    def Adjk(n, k):
+    def Adjk(n, k, spatial_A):
         """
         A space-time adjacency matrix with dependencies k steps into the future
         """
-        return jnp.kron(Ak(n, k), spatial_adj)
+        # return sparse.BCOO.fromdense(jnp.kron(Ak(n, k), spatial_A))
+        return KroneckerProduct((Ak(n, k), spatial_A))
 
     def estimate_clusters(y, z, c, p):
         # Not all clusters enter the experiment; this identifes those that do
         mask = (jnp.zeros(n_clusters).at[c].add(1)) > 0
         y_by_c = jnp.zeros(n_clusters).at[c].add(y)
         z_by_c = (jnp.zeros(n_clusters).at[c].add(z)) > 0
+
+        # All DQ settings
         dq_lookaheads = [
-            (look, np.ceil(look * 60 / switch_every))
+            (look, int(np.ceil(look * 60 / switch_every)))
             for look in [0, 5, 10, 30, 60, 120]
         ]
-        print(dq_lookaheads)
 
-        return {
-            "mean": y.mean(),
-            "naive": naive(y_by_c, z_by_c, p, mask) / y.shape[0],
-            "dq": dq(
-                y_by_c, z_by_c, p, mask, Adjk(n_times, n_times), baseline=0
-            )
-            / y.shape[0],
-            **{
-                f"dq_{minutes:03d}m": dq(
-                    y_by_c, z_by_c, p, mask, Adjk(n_times, periods)
-                ) / y.shape[0]
-                for minutes, periods in dq_lookaheads
+        spatial_adjs = [
+            (max_km, zone_dists < max_km) for max_km in [0.5, 1, 2, 5]
+        ]
+
+        return [
+            {
+                "estimator": 0,
+                "estimate": naive(y_by_c, z_by_c, p, mask) / y.shape[0],
             },
-        }
+            *[
+                {
+                    "estimator": est_name,
+                    "estimate": est(
+                        y_by_c,
+                        z_by_c,
+                        p,
+                        mask,
+                        Adjk(n_times, periods, spatial_adj),
+                    )
+                    / y.shape[0],
+                    "lookahead_minutes": minutes,
+                    "max_km": max_km,
+                }
+                for minutes, periods in dq_lookaheads
+                for max_km, spatial_adj in spatial_adjs
+                for est_name, est in [
+                    (1, dq),
+                    (2, dq_grad),
+                    # (3, ht),
+                ]
+            ],
+        ]
 
     all_results = []
     for i in trange(k // batch_size + 1):
@@ -319,6 +363,17 @@ def main(
     pd.DataFrame.from_dict([_config]).to_csv(
         _config["config_output"], index=False
     )
-    results_df = pd.concat(map(pd.DataFrame, all_results))
+    estimator_names = pd.DataFrame(
+        [
+            {"estimator": 0, "name": "naive"},
+            {"estimator": 1, "name": "dq"},
+            {"estimator": 2, "name": "dq_grad"},
+            {"estimator": 3, "name": "ht"},
+        ]
+    )
+    results_df = (
+        pd.concat(map(pd.DataFrame, f.flatten(all_results)))
+        .merge(estimator_names, on="estimator")
+    )
     results_df["ATE"] = ate
     results_df.to_csv(output, index=False)
