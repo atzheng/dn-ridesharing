@@ -53,7 +53,7 @@ class ExperimentInfo:
     Contains treatment assignment and cluster information for each step
     """
 
-    time_id: Integer[Array, "n_steps"]
+    t: Integer[Array, "n_steps"]
     space_id: Integer[Array, "n_steps"]
     cluster_id: Integer[Array, "n_steps"]
     is_treat: Bool[Array, "n_steps"]
@@ -93,15 +93,15 @@ def dq_update(
     reward: float,
     info: ExperimentInfo,
     p=0.5,
-    periods=1,
+    lookahead_seconds=600,
+    switch_every=1
 ):
     # Eta to be included later
     z = info.is_treat
     xi = z * (1 - p) / p + (1 - z) * p / (1 - p)
     update_val = xi * reward
-    is_adjacent_t = (
-        (time_ids >= info.time_id - periods)
-        & (time_ids <= info.time_id)
+    is_adjacent_t = (time_ids >= info.t - lookahead_seconds) & (
+        time_ids <= (info.t // switch_every + 1) * switch_every
     )
     is_adjacent_space = space_adj[space_ids, info.space_id]
     # jax.debug.print("{eea}", eea=(is_adjacent_space & is_adjacent_t).sum())
@@ -170,7 +170,9 @@ def run_trials(
     space_adj=None,
     lookahead_seconds=600,
 ):
-    time_ids = env_params.events.t // switch_every
+    time_ids = (
+        env_params.events.t // switch_every + 1
+    ) * switch_every  # Identifies the end of the period
     space_ids = spatial_clusters.loc[env_params.events.src]["zone_id"].values
     ab_key, key = jax.random.split(key)
     unq_times, unq_time_ids = jnp.unique(time_ids, return_inverse=True)
@@ -193,7 +195,8 @@ def run_trials(
             jnp.tile(unq_spaces, len(unq_times)),
             space_adj,
             p=p,
-            periods=jnp.ceil(lookahead_seconds / switch_every),
+            lookahead_seconds=lookahead_seconds,
+            switch_every=switch_every,
         ),
     }
 
@@ -206,7 +209,7 @@ def run_trials(
     }
 
     infos = ExperimentInfo(
-        time_id=jnp.tile(time_ids.reshape(1, -1), (n_envs, 1)),
+        t=jnp.tile(env_params.events.t.reshape(1, -1), (n_envs, 1)),
         space_id=jnp.tile(space_ids.reshape(1, -1), (n_envs, 1)),
         cluster_id=jnp.tile(cluster_ids.reshape(1, -1), (n_envs, 1)),
         is_treat=is_treat,

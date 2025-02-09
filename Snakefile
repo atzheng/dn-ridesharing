@@ -1,5 +1,7 @@
+n_events = 500000
 switch_everys = [
-    60, 120, 300, 600, 900, 1200, 1800, 3600
+    # 60,
+    120, 300, 600, 900, 1200, 1800, 3600
 ]
 
 targets = expand(
@@ -9,7 +11,8 @@ targets = expand(
 
 rule all:
     input:
-        targets
+        ["output/ate.csv"] + targets
+
 
 rule run:
     output:
@@ -17,19 +20,25 @@ rule run:
         cfg="output/switch={switch_every}/config.csv",
     shell:
         """
-        python rideshare.py with \
+        python rideshare-incremental.py with \
         switch_every={wildcards.switch_every} \
         output={output.results:q} \
         config_output={output.cfg:q} \
-        n_events=100000 \
-        k=1000 \
-        batch_size=100 \
+        n_events={n_events} \
+        k=999\
+        batch_size=1000 \
         seed=42
         """
 
 
 rule ate:
     output:
-        "output/ate.json"
+        "output/ate.csv"
     shell:
-        "python compute-ate.py with n_events=200000 output={output}"
+        """
+        python compute-ate.py with \
+        n_events={n_events} \
+        output={output} \
+        k=10000 \
+        batch_size=1000
+        """

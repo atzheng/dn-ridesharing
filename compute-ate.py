@@ -22,9 +22,9 @@ from tqdm import tqdm, trange
 import pandas as pd
 import numpy as np
 import funcy as f
-import json
 
 ex = Experiment("compute-ate")
+
 
 @ex.config
 def config():
@@ -34,33 +34,48 @@ def config():
     w_eta = -0.005
     w_intercept = 4
     n_events = 10000  # Number of events to simulate per trial
+    batch_size = 100  # Number of environments to run in parallel
     k = 100  # Total number of trials
-    output = "ate.json"
+    output = "ate.csv"
 
 
-def stepper(env, env_params, policy, obs_and_state, key):
-    obs, state = obs_and_state
+def stepper(env, env_params, policy, carry, key):
+    obs, state, total_reward = carry
     key, policy_key = jax.random.split(key)
     action, action_info = policy.apply(env_params, dict(), obs, policy_key)
     new_obs, new_state, reward, _, _ = env.step(key, state, action, env_params)
-    return (new_obs, new_state), reward
+    return (new_obs, new_state, total_reward + reward), None
 
 
 def run(env, env_params, policy, key, n_steps):
     keys = jax.random.split(key, n_steps)
     obs, state = env.reset(key, env_params)
-    _, results = jax.lax.scan(
+    final, _ = jax.lax.scan(
         partial(stepper, env, env_params, policy),
-        (obs, state),
+        (obs, state, 0),
         keys,
     )
-    return results
+    _, _, total_reward = final
+    return total_reward / n_steps
+
 
 vmap_run = jax.vmap(run, in_axes=(None, None, None, 0, None))
 
+
+def run_batch(env, env_params, A, B, key, n_steps, batch_size):
+    keys = jax.random.split(key, batch_size)
+    results_A = vmap_run(env, env_params, A, keys, n_steps)
+    results_B = vmap_run(env, env_params, B, keys, n_steps)
+    return {
+        "A": results_A,
+        "B": results_B,
+    }
+
+
 @ex.automain
-def main(n_cars, w_price, w_eta, w_intercept, n_events, k, output, seed):
-    keys = jax.random.split(jax.random.PRNGKey(seed), k)
+def main(
+    n_cars, w_price, w_eta, w_intercept, n_events, k, output, seed, batch_size
+):
     env = ManhattanRidesharePricing(n_cars=n_cars, n_events=n_events)
     env_params = env.default_params
     env_params = env_params.replace(
@@ -69,18 +84,11 @@ def main(n_cars, w_price, w_eta, w_intercept, n_events, k, output, seed):
     A = SimplePricingPolicy(n_cars=env.n_cars, price_per_distance=0.01)
     B = SimplePricingPolicy(n_cars=env.n_cars, price_per_distance=0.02)
 
-    results_A = vmap_run(env, env_params, A, keys, n_events)
-    results_B = vmap_run(env, env_params, B, keys, n_events)
-    mean_A = results_A.mean()
-    mean_B = results_B.mean()
-
-    out_dict = f.walk_values(float, {
-        "mean_A": mean_A,
-        "mean_A_sd": results_A.std(),
-        "mean_B": mean_B,
-        "mean_B_sd": results_B.std(),
-        "ate": mean_B - mean_A,
-        "ate_se": (results_B - results_A).std() / np.sqrt(k),
-    })
-
-    json.dump(out_dict, open(output, "w"))
+    n_batches = k // batch_size
+    keys = jax.random.split(jax.random.PRNGKey(seed), n_batches)
+    results = [
+        run_batch(env, env_params, A, B, key, n_events, batch_size)
+        for key in tqdm(keys)
+    ]
+    results_df = pd.concat(map(pd.DataFrame, results))
+    results_df.to_csv(output, index=False)
