@@ -181,12 +181,6 @@ def run_trials(
     }
 
 
-def single_stepper(env, env_params, policy, obs_and_state, key):
-    obs, state = obs_and_state
-    key, policy_key = jax.random.split(key)
-    action, action_info = policy.apply(env_params, dict(), obs, policy_key)
-    new_obs, new_state, reward, _, _ = env.step(key, state, action, env_params)
-    return (new_obs, new_state), (obs, action, reward, action_info)
 
 
 def load_spatial_clusters():
@@ -249,21 +243,6 @@ def main(
 
     A = SimplePricingPolicy(n_cars=env.n_cars, price_per_distance=0.01)
     B = SimplePricingPolicy(n_cars=env.n_cars, price_per_distance=0.02)
-    keys = jax.random.split(key, 10000)
-    _, results_A = jax.lax.scan(
-        partial(single_stepper, env, env_params, A),
-        env.reset(key, env_params),
-        keys,
-    )
-
-    _, results_B = jax.lax.scan(
-        partial(single_stepper, env, env_params, B),
-        env.reset(key, env_params),
-        keys,
-    )
-
-    ate = results_B[2].mean() - results_A[2].mean()
-    print("ATE=", ate)
     print(
         "Simulation time (mins)",
         (env_params.events.t.max() - env_params.events.t[5]) / 60,
@@ -337,7 +316,8 @@ def main(
         ]
 
     all_results = []
-    for i in trange(k // batch_size + 1):
+    keys = jax.random.split(key, k // batch_size + 1)
+    for key in keys:
         results = run_trials(
             env,
             env_params,
@@ -375,5 +355,5 @@ def main(
         pd.concat(map(pd.DataFrame, f.flatten(all_results)))
         .merge(estimator_names, on="estimator")
     )
-    results_df["ATE"] = ate
+    # results_df["ATE"] = ate
     results_df.to_csv(output, index=False)

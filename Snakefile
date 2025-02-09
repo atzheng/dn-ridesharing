@@ -21,7 +21,15 @@ rule run:
         switch_every={wildcards.switch_every} \
         output={output.results:q} \
         config_output={output.cfg:q} \
-        n_events=100000 \
-        k=1000 \
-        batch_size=20 \
+        n_events=200000 \
+        k=10000 \
+        batch_size=10 \
+        seed=42
         """
+
+
+rule ate:
+    output:
+        "output/ate.json"
+    shell:
+        "python compute-ate.py with n_events=200000 output={output}"
