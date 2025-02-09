@@ -21,9 +21,9 @@ rule run:
         switch_every={wildcards.switch_every} \
         output={output.results:q} \
         config_output={output.cfg:q} \
-        n_events=200000 \
-        k=10000 \
-        batch_size=10 \
+        n_events=100000 \
+        k=1000 \
+        batch_size=100 \
         seed=42
         """
 

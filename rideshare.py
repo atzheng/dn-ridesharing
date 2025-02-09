@@ -317,7 +317,7 @@ def main(
 
     all_results = []
     keys = jax.random.split(key, k // batch_size + 1)
-    for key in keys:
+    for key in tqdm(keys):
         results = run_trials(
             env,
             env_params,
