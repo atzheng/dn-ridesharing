@@ -1,27 +1,12 @@
 import jax
-from jax.experimental import sparse
 from functools import partial
-from picard.environments.rideshare_dispatch import (
-    ManhattanRideshareDispatch,
+from or_gymnax.rideshare import (
     ManhattanRidesharePricing,
-    GreedyPolicy,
     SimplePricingPolicy,
-    EnvParams,
-    obs_to_state,
-    RideshareEvent,
 )
-from picard.nn import Policy
-from jax import numpy as jnp
-from typing import Dict
-import chex
-from jax import Array
-from jaxtyping import Integer, Float, Bool
-from flax import struct
 from sacred import Experiment
-from tqdm import tqdm, trange
 import pandas as pd
-import numpy as np
-import funcy as f
+from tqdm import tqdm
 
 ex = Experiment("compute-ate")
 
