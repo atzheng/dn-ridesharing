@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "network-dq"
+version = "0.1.0"
+description = ""
+authors = ["Andrew Zheng <azheng92@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pandas = "^2.2.3"
+haversine = "^2.9.0"
+funcy = "^2.0"
+sacred = "^0.8.7"
+chex = "^0.1.89"
+jax = "0.5.2"
+flax = "^0.10.6"
+tqdm = "^4.67.1"
+pyarrow = "^20.0.0"
+or-gymnax = {git = "https://github.com/atzheng/or-gymnax.git", rev = "main"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

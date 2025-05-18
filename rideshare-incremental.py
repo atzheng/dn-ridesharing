@@ -1,7 +1,7 @@
 import jax
 from jax.experimental import sparse
 from functools import partial
-from picard.environments.rideshare_dispatch import (
+from or_gymnax.rideshare import (
     ManhattanRideshareDispatch,
     ManhattanRidesharePricing,
     GreedyPolicy,
@@ -10,7 +10,7 @@ from picard.environments.rideshare_dispatch import (
     obs_to_state,
     RideshareEvent,
 )
-from picard.nn import Policy
+from or_gymnax.nn import Policy
 from jax import numpy as jnp
 from typing import Dict, Callable, Tuple
 import chex
