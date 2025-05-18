@@ -1,0 +1,24 @@
+Building DAG of jobs...
+Using shell: /bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Job stats:
+job      count
+-----  -------
+all          1
+ate          1
+run          7
+total        9
+
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun May 18 01:42:04 2025]
+localrule run:
+    output: output/switch=1800/results.csv, output/switch=1800/config.csv
+    jobid: 7
+    reason: Missing output files: output/switch=1800/results.csv
+    wildcards: switch_every=1800
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+Terminating processes on user request, this might take some time.

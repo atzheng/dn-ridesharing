@@ -1,0 +1,156 @@
+Building DAG of jobs...
+Using shell: /bin/bash
+Provided cores: 10
+Rules claiming more threads will be scaled down.
+Job stats:
+job      count
+-----  -------
+all          1
+ate          1
+run          7
+total        9
+
+Select jobs to execute...
+Execute 8 jobs...
+
+[Sun May 18 04:05:55 2025]
+localrule run:
+    output: output/switch=1800/results.csv, output/switch=1800/config.csv
+    jobid: 7
+    reason: Code has changed since last execution
+    wildcards: switch_every=1800
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+
+[Sun May 18 04:05:55 2025]
+localrule run:
+    output: output/switch=300/results.csv, output/switch=300/config.csv
+    jobid: 3
+    reason: Code has changed since last execution
+    wildcards: switch_every=300
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+
+[Sun May 18 04:05:55 2025]
+localrule run:
+    output: output/switch=1200/results.csv, output/switch=1200/config.csv
+    jobid: 6
+    reason: Code has changed since last execution
+    wildcards: switch_every=1200
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+
+[Sun May 18 04:05:55 2025]
+localrule run:
+    output: output/switch=900/results.csv, output/switch=900/config.csv
+    jobid: 5
+    reason: Code has changed since last execution
+    wildcards: switch_every=900
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+
+[Sun May 18 04:05:55 2025]
+localrule run:
+    output: output/switch=3600/results.csv, output/switch=3600/config.csv
+    jobid: 8
+    reason: Code has changed since last execution
+    wildcards: switch_every=3600
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+
+[Sun May 18 04:05:55 2025]
+localrule run:
+    output: output/switch=600/results.csv, output/switch=600/config.csv
+    jobid: 4
+    reason: Code has changed since last execution
+    wildcards: switch_every=600
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+
+[Sun May 18 04:05:55 2025]
+localrule ate:
+    output: output/ate.csv
+    jobid: 1
+    reason: Missing output files: output/ate.csv; Code has changed since last execution
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+
+[Sun May 18 04:05:55 2025]
+localrule run:
+    output: output/switch=120/results.csv, output/switch=120/config.csv
+    jobid: 2
+    reason: Code has changed since last execution
+    wildcards: switch_every=120
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+[Sun May 18 04:06:07 2025]
+Error in rule run:
+    jobid: 7
+    output: output/switch=1800/results.csv, output/switch=1800/config.csv
+    shell:
+        
+        python rideshare-incremental.py with         switch_every=1800         output=output/switch=1800/results.csv         config_output=output/switch=1800/config.csv         n_events=500000         k=1        batch_size=100         chunk_size=1000         seed=42
+        
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+
+[Sun May 18 04:06:07 2025]
+Error in rule run:
+    jobid: 8
+    output: output/switch=3600/results.csv, output/switch=3600/config.csv
+    shell:
+        
+        python rideshare-incremental.py with         switch_every=3600         output=output/switch=3600/results.csv         config_output=output/switch=3600/config.csv         n_events=500000         k=1        batch_size=100         chunk_size=1000         seed=42
+        
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+
+[Sun May 18 04:06:07 2025]
+Error in rule run:
+    jobid: 3
+    output: output/switch=300/results.csv, output/switch=300/config.csv
+    shell:
+        
+        python rideshare-incremental.py with         switch_every=300         output=output/switch=300/results.csv         config_output=output/switch=300/config.csv         n_events=500000         k=1        batch_size=100         chunk_size=1000         seed=42
+        
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+
+[Sun May 18 04:06:07 2025]
+Error in rule run:
+    jobid: 5
+    output: output/switch=900/results.csv, output/switch=900/config.csv
+    shell:
+        
+        python rideshare-incremental.py with         switch_every=900         output=output/switch=900/results.csv         config_output=output/switch=900/config.csv         n_events=500000         k=1        batch_size=100         chunk_size=1000         seed=42
+        
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+
+[Sun May 18 04:06:07 2025]
+Error in rule run:
+    jobid: 6
+    output: output/switch=1200/results.csv, output/switch=1200/config.csv
+    shell:
+        
+        python rideshare-incremental.py with         switch_every=1200         output=output/switch=1200/results.csv         config_output=output/switch=1200/config.csv         n_events=500000         k=1        batch_size=100         chunk_size=1000         seed=42
+        
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+
+[Sun May 18 04:06:07 2025]
+Error in rule run:
+    jobid: 2
+    output: output/switch=120/results.csv, output/switch=120/config.csv
+    shell:
+        
+        python rideshare-incremental.py with         switch_every=120         output=output/switch=120/results.csv         config_output=output/switch=120/config.csv         n_events=500000         k=1        batch_size=100         chunk_size=1000         seed=42
+        
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+
+[Sun May 18 04:06:07 2025]
+Error in rule run:
+    jobid: 4
+    output: output/switch=600/results.csv, output/switch=600/config.csv
+    shell:
+        
+        python rideshare-incremental.py with         switch_every=600         output=output/switch=600/results.csv         config_output=output/switch=600/config.csv         n_events=500000         k=1        batch_size=100         chunk_size=1000         seed=42
+        
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+
+Terminating processes on user request, this might take some time.

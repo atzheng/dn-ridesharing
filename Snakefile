@@ -25,8 +25,9 @@ rule run:
         output={output.results:q} \
         config_output={output.cfg:q} \
         n_events={n_events} \
-        k=999\
-        batch_size=1000 \
+        k=1\
+        batch_size=100 \
+        chunk_size=1000 \
         seed=42
         """
 
@@ -39,6 +40,7 @@ rule ate:
         python compute-ate.py with \
         n_events={n_events} \
         output={output} \
-        k=10000 \
-        batch_size=1000
+        k=100 \
+        batch_size=100 \
+        chunk_size=10000
         """

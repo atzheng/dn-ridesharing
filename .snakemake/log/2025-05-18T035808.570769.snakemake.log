@@ -1,0 +1,21 @@
+Building DAG of jobs...
+Using shell: /bin/bash
+Provided cores: 10
+Rules claiming more threads will be scaled down.
+Job stats:
+job      count
+-----  -------
+ate          1
+total        1
+
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun May 18 03:58:08 2025]
+localrule ate:
+    output: output/ate.csv
+    jobid: 0
+    reason: Missing output files: output/ate.csv
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+Terminating processes on user request, this might take some time.

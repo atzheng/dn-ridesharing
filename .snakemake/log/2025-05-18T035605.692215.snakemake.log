@@ -1,0 +1,34 @@
+Building DAG of jobs...
+Using shell: /bin/bash
+Provided cores: 10
+Rules claiming more threads will be scaled down.
+Job stats:
+job      count
+-----  -------
+ate          1
+total        1
+
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun May 18 03:56:05 2025]
+localrule ate:
+    output: output/ate.csv
+    jobid: 0
+    reason: Code has changed since last execution
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+Terminating processes on user request, this might take some time.
+[Sun May 18 03:56:51 2025]
+Error in rule ate:
+    jobid: 0
+    output: output/ate.csv
+    shell:
+        
+        python compute-ate.py with         n_events=500000         output=output/ate.csv         k=100         batch_size=100
+        
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+
+Complete log: .snakemake/log/2025-05-18T035605.692215.snakemake.log
+WorkflowError:
+At least one job did not complete successfully.

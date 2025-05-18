@@ -1,7 +1,7 @@
 import jax
 from jax.experimental import sparse
 from functools import partial
-from picard.environments.rideshare_dispatch import (
+from picard.rideshare_dispatch import (
     ManhattanRideshareDispatch,
     ManhattanRidesharePricing,
     GreedyPolicy,
@@ -24,7 +24,10 @@ import numpy as np
 import funcy as f
 import pandas as pd
 import haversine
+import logging
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 ex = Experiment("rideshares")
 
@@ -37,7 +40,7 @@ def config():
     w_eta = -0.005
     w_intercept = 4
     n_events = 10000  # Number of events to simulate per trial
-    k = 1000  # Total number of trials
+    k = 10  # Total number of trials
     batch_size = 100  # Number of environments to run in parallel
     switch_every = 1000  # Switchback duration
     p = 0.5  # Treatment probability
@@ -45,6 +48,7 @@ def config():
     config_output = "config.csv"
     max_km = 2
     lookahead_seconds = 600
+    chunk_size = 1000  # Number of steps to process in each chunk
 
 
 @struct.dataclass
@@ -169,6 +173,7 @@ def run_trials(
     spatial_clusters=None,
     space_adj=None,
     lookahead_seconds=600,
+    chunk_size=1000,
 ):
     time_ids = (
         env_params.events.t // switch_every + 1
@@ -216,19 +221,71 @@ def run_trials(
         key=step_keys,
     )
 
-    def scanner(obs_and_state_and_ests, infos):
-        return jax.lax.scan(
-            partial(stepper, estimators, env, env_params, A, B),
-            obs_and_state_and_ests,
-            infos,
-        )[0][2]
+    def scanner(obs_and_states_and_ests_initial_batched, global_batched_infos):
+        
+        # This function is vmapped. It processes one batch element over one chunk of steps.
+        def scan_fn_for_one_batch_element_one_chunk(carry_one_batch_element, infos_one_batch_element_one_chunk):
+            # carry_one_batch_element is (obs_i, state_i, ests_i_dict) for the i-th batch element.
+            # infos_one_batch_element_one_chunk is an ExperimentInfo instance where each field
+            # (e.g., .t, .key) has shape (current_chunk_length,) for the i-th batch element.
+            
+            # jax.lax.scan iterates over the leading axis of infos_one_batch_element_one_chunk.
+            # stepper is partially applied with (estimators, env, env_params, A, B) from the outer scope.
+            # stepper expects: carry=(obs, state, ests_dict_for_one_batch), info=ExperimentInfo_for_one_step.
+            final_carry_one_batch_element, _ = jax.lax.scan(
+                partial(stepper, estimators, env, env_params, A, B),
+                carry_one_batch_element,
+                infos_one_batch_element_one_chunk, # This is 'xs' for the inner scan.
+            )
+            # stepper returns (new_carry, None), so final_carry_one_batch_element is (obs_final, state_final, ests_dict_final)
+            return final_carry_one_batch_element
+
+        # Vmap scan_fn_for_one_batch_element_one_chunk to run in parallel for all batch elements.
+        vmapped_chunk_processor = jax.vmap(
+            scan_fn_for_one_batch_element_one_chunk,
+            in_axes=(0, 0), # Process 0-th axis of carry_batched and 0-th axis of infos_batched_for_chunk.
+            out_axes=0      # The output (final_carry_one_batch_element) is also batched along axis 0.
+        )
+
+        current_full_carry_batched = obs_and_states_and_ests_initial_batched
+
+        n_steps = global_batched_infos.t.shape[1]
+        # chunk_size is from the outer scope (run_trials parameter)
+        n_chunks = (n_steps + chunk_size - 1) // chunk_size
+
+        for chunk_idx in tqdm(range(n_chunks)):
+            chunk_start = chunk_idx * chunk_size
+            chunk_end = min(chunk_start + chunk_size, n_steps)
+
+            # Slice global_batched_infos to get data for the current chunk across all batch elements.
+            # Each field in current_chunk_infos_batched will have shape (batch_size, current_chunk_length).
+            current_chunk_infos_batched = ExperimentInfo(
+                t=global_batched_infos.t[:, chunk_start:chunk_end],
+                space_id=global_batched_infos.space_id[:, chunk_start:chunk_end],
+                cluster_id=global_batched_infos.cluster_id[:, chunk_start:chunk_end],
+                is_treat=global_batched_infos.is_treat[:, chunk_start:chunk_end],
+                key=global_batched_infos.key[:, chunk_start:chunk_end],
+            )
+            
+            # Apply the vmapped function to process the current chunk for all batch elements.
+            current_full_carry_batched = vmapped_chunk_processor(
+                current_full_carry_batched,
+                current_chunk_infos_batched
+            )
+            current_full_carry_batched[0].block_until_ready()
+            # Optional: Add current_full_carry_batched.block_until_ready() here if needed for debugging,
+            # especially for memory profiling or ensuring sequential execution visibility.
+
+        # The final carry contains (final_obs_batched, final_state_batched, final_ests_dict_batched).
+        # We need to return the final_ests_dict_batched part.
+        _, _, final_ests_dict_batched = current_full_carry_batched
+        return final_ests_dict_batched
 
     obs_and_states = jax.vmap(env.reset, in_axes=(0, None))(
         reset_keys, env_params
     )
     obs_and_states_and_ests = (*obs_and_states, init_ests)
-    vmap_scan = jax.vmap(scanner, in_axes=(0, 0))
-    estimator_results = vmap_scan(obs_and_states_and_ests, infos)
+    estimator_results = scanner(obs_and_states_and_ests, infos)
     return {
         est_name: jax.vmap(estimator_fns[est_name], in_axes=(0, 0, None))(
             est_state, cluster_treats, p
@@ -275,7 +332,9 @@ def main(
     _config,
     max_km,
     lookahead_seconds,
+    chunk_size,
 ):
+    logging.info("Starting simulation with parameters: %s", _config)
     key = jax.random.PRNGKey(seed)
     env = ManhattanRidesharePricing(n_cars=n_cars, n_events=n_events)
     env_params = env.default_params
@@ -284,9 +343,12 @@ def main(
     )
 
     nodes_zones, zone_dists = load_spatial_clusters()
+    logging.info("Loaded spatial clusters and distances.")
 
     A = SimplePricingPolicy(n_cars=env.n_cars, price_per_distance=0.01)
     B = SimplePricingPolicy(n_cars=env.n_cars, price_per_distance=0.02)
+    logging.info("Initialized pricing policies.")
+
     print(
         "Simulation time (mins)",
         (env_params.events.t.max() - env_params.events.t[5]) / 60,
@@ -300,10 +362,12 @@ def main(
     n_times = unq_times.shape[0]
     n_spaces = zone_dists.shape[0]
     n_clusters = n_times * n_spaces
+    logging.info("Calculated number of clusters: %d", n_clusters)
 
     all_results = []
     keys = jax.random.split(key, k // batch_size + 1)
-    for key in tqdm(keys):
+    for i, key in enumerate(keys):
+        logging.info("Starting batch %d/%d", i + 1, len(keys))
         ests = run_trials(
             env,
             env_params,
@@ -317,11 +381,14 @@ def main(
             spatial_clusters=nodes_zones,
             space_adj=jnp.asarray(zone_dists < max_km),
             lookahead_seconds=lookahead_seconds,
+            chunk_size=chunk_size,
         )
         all_results.append(ests)
+        logging.info("Completed batch %d/%d", i + 1, len(keys))
 
     pd.DataFrame.from_dict([_config]).to_csv(
         _config["config_output"], index=False
     )
     results_df = pd.concat(map(pd.DataFrame, all_results))
     results_df.to_csv(output, index=False)
+    logging.info("Simulation completed.")

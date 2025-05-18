@@ -1,0 +1,137 @@
+Building DAG of jobs...
+Using shell: /bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Job stats:
+job      count
+-----  -------
+all          1
+ate          1
+run          7
+total        9
+
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun May 18 01:59:30 2025]
+localrule run:
+    output: output/switch=1800/results.csv, output/switch=1800/config.csv
+    jobid: 7
+    reason: Missing output files: output/switch=1800/results.csv
+    wildcards: switch_every=1800
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+[Sun May 18 02:00:14 2025]
+Finished job 7.
+1 of 9 steps (11%) done
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun May 18 02:00:14 2025]
+localrule run:
+    output: output/switch=300/results.csv, output/switch=300/config.csv
+    jobid: 3
+    reason: Missing output files: output/switch=300/results.csv
+    wildcards: switch_every=300
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+[Sun May 18 02:00:28 2025]
+Finished job 3.
+2 of 9 steps (22%) done
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun May 18 02:00:28 2025]
+localrule run:
+    output: output/switch=1200/results.csv, output/switch=1200/config.csv
+    jobid: 6
+    reason: Missing output files: output/switch=1200/results.csv
+    wildcards: switch_every=1200
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+[Sun May 18 02:00:41 2025]
+Finished job 6.
+3 of 9 steps (33%) done
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun May 18 02:00:41 2025]
+localrule run:
+    output: output/switch=900/results.csv, output/switch=900/config.csv
+    jobid: 5
+    reason: Missing output files: output/switch=900/results.csv
+    wildcards: switch_every=900
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+[Sun May 18 02:00:55 2025]
+Finished job 5.
+4 of 9 steps (44%) done
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun May 18 02:00:55 2025]
+localrule run:
+    output: output/switch=3600/results.csv, output/switch=3600/config.csv
+    jobid: 8
+    reason: Missing output files: output/switch=3600/results.csv
+    wildcards: switch_every=3600
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+[Sun May 18 02:01:09 2025]
+Finished job 8.
+5 of 9 steps (56%) done
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun May 18 02:01:09 2025]
+localrule ate:
+    output: output/ate.csv
+    jobid: 1
+    reason: Missing output files: output/ate.csv
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+[Sun May 18 02:13:30 2025]
+Finished job 1.
+6 of 9 steps (67%) done
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun May 18 02:13:30 2025]
+localrule run:
+    output: output/switch=120/results.csv, output/switch=120/config.csv
+    jobid: 2
+    reason: Missing output files: output/switch=120/results.csv
+    wildcards: switch_every=120
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+[Sun May 18 02:15:28 2025]
+Finished job 2.
+7 of 9 steps (78%) done
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun May 18 02:15:28 2025]
+localrule run:
+    output: output/switch=600/results.csv, output/switch=600/config.csv
+    jobid: 4
+    reason: Missing output files: output/switch=600/results.csv
+    wildcards: switch_every=600
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+[Sun May 18 02:15:42 2025]
+Finished job 4.
+8 of 9 steps (89%) done
+Select jobs to execute...
+Execute 1 jobs...
+
+[Sun May 18 02:15:42 2025]
+localrule all:
+    input: output/ate.csv, output/switch=120/results.csv, output/switch=300/results.csv, output/switch=600/results.csv, output/switch=900/results.csv, output/switch=1200/results.csv, output/switch=1800/results.csv, output/switch=3600/results.csv
+    jobid: 0
+    reason: Input files updated by another job: output/switch=120/results.csv, output/switch=1200/results.csv, output/ate.csv, output/switch=1800/results.csv, output/switch=300/results.csv, output/switch=3600/results.csv, output/switch=600/results.csv, output/switch=900/results.csv
+    resources: tmpdir=/var/folders/84/sq9gqqh952qfzb3rpnrkcjqr0000gn/T
+
+[Sun May 18 02:15:42 2025]
+Finished job 0.
+9 of 9 steps (100%) done
+Complete log: .snakemake/log/2025-05-18T015930.319937.snakemake.log
