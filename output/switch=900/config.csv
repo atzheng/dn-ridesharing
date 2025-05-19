@@ -1,0 +1,2 @@
+n_cars,w_price,w_eta,w_intercept,n_events,k,batch_size,switch_every,p,output,config_output,max_km,lookahead_seconds,seed
+300,-0.3,-0.005,4,500000,999,1000,900,0.5,output/switch=900/results.csv,output/switch=900/config.csv,2,600,42

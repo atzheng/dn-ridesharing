@@ -1,0 +1,7 @@
+# Snakemake related
+.snakemake/
+*.snakemake/
+snakemake.log
+
+# Poetry related
+poetry.lock 
